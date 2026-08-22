@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: coresto
+
+  # ─── JPA / Hibernate ──────────────────────────────────────────────────
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+  # ─── OAuth2 Resource Server (Keycloak JWT) ────────────────────────────
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/realms/coresto
+          jwk-set-uri: http://localhost:8081/realms/coresto/protocol/openid-connect/certs
+
+# ─── Server ────────────────────────────────────────────────────────────
+server:
+  port: 8080
+
+# ─── Keycloak Admin Client ─────────────────────────────────────────────
+keycloak:
+  admin:
+    server-url: http://localhost:8081
+    realm: master
+    client-id: admin-cli
+    username: ghassen_labben
+    password: yalonda@02
+    target-realm: coresto
+
+# ─── Springdoc / Swagger ───────────────────────────────────────────────
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

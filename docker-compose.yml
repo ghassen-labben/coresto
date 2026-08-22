@@ -1,0 +1,78 @@
+services:
+
+  # ─── PostgreSQL (shared by Keycloak + App) ───────────────────────────
+  postgres:
+    image: postgres:17-alpine
+    container_name: coresto-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: coresto
+      POSTGRES_PASSWORD: coresto123
+      POSTGRES_DB: coresto_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coresto -d coresto_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Keycloak ────────────────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.4
+    container_name: coresto-keycloak
+    command: start-dev
+    restart: unless-stopped
+    environment:
+      # Admin bootstrap
+      KC_BOOTSTRAP_ADMIN_USERNAME: ghassen_labben
+      KC_BOOTSTRAP_ADMIN_PASSWORD: yalonda@02
+
+      # Database — use the keycloak_db created by init-db.sh
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
+      KC_DB_USERNAME: coresto
+      KC_DB_PASSWORD: coresto123
+
+      # Features
+      KC_FEATURES: organization
+
+      # Hostname (dev mode)
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8081
+      KC_HTTP_ENABLED: true
+    ports:
+      - "8081:8080"
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Coresto Spring Boot App (uncomment when ready to containerize) ─
+  # coresto-app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: coresto-app
+  #   restart: unless-stopped
+  #   environment:
+  #     SPRING_PROFILES_ACTIVE: dev
+  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/coresto_db
+  #     SPRING_DATASOURCE_USERNAME: coresto
+  #     SPRING_DATASOURCE_PASSWORD: coresto123
+  #     SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/coresto
+  #   ports:
+  #     - "8080:8080"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     keycloak:
+  #       condition: service_started
+
+volumes:
+  postgres_data:
+  keycloak_data:

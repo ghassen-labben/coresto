@@ -1,0 +1,23 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/coresto_db
+    username: coresto
+    password: coresto123
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+# Keycloak Admin Client (dev)
+keycloak:
+  admin:
+    server-url: http://localhost:8081
+    realm: master
+    client-id: admin-cli
+    username: ghassen_labben
+    password: yalonda@02
