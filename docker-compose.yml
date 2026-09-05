@@ -52,26 +52,29 @@ services:
       postgres:
         condition: service_healthy
 
-  # ─── Coresto Spring Boot App (uncomment when ready to containerize) ─
-  # coresto-app:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: coresto-app
-  #   restart: unless-stopped
-  #   environment:
-  #     SPRING_PROFILES_ACTIVE: dev
-  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/coresto_db
-  #     SPRING_DATASOURCE_USERNAME: coresto
-  #     SPRING_DATASOURCE_PASSWORD: coresto123
-  #     SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/coresto
-  #   ports:
-  #     - "8080:8080"
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     keycloak:
-  #       condition: service_started
+  # ─── Coresto Spring Boot App ─────────────────────────────────────────
+  coresto-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: coresto-app
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/coresto_db
+      SPRING_DATASOURCE_USERNAME: coresto
+      SPRING_DATASOURCE_PASSWORD: coresto123
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/coresto
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/coresto/protocol/openid-connect/certs
+      KEYCLOAK_ADMIN_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET:-slj4mFOivhEsVEUKMvpDSwQo3itxSMsm}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
 
 volumes:
   postgres_data:

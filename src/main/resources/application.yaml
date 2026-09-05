@@ -13,6 +13,12 @@ spring:
         jdbc:
           time_zone: UTC
 
+  # ─── Flyway Migrations ────────────────────────────────────────────────
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
   # ─── OAuth2 Resource Server (Keycloak JWT) ────────────────────────────
   security:
     oauth2:
@@ -20,6 +26,18 @@ spring:
         jwt:
           issuer-uri: http://localhost:8081/realms/coresto
           jwk-set-uri: http://localhost:8081/realms/coresto/protocol/openid-connect/certs
+
+# ─── Management & Actuator Probes ──────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
 
 # ─── Server ────────────────────────────────────────────────────────────
 server:

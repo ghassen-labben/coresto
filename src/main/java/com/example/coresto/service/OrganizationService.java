@@ -1,5 +1,6 @@
 package com.example.coresto.service;
 
+import com.example.coresto.dto.PaginatedResponse;
 import com.example.coresto.dto.organization.CreateOrganizationGroupRequest;
 import com.example.coresto.dto.organization.CreateOrganizationRequest;
 import com.example.coresto.dto.organization.OrganizationGroupResponse;
@@ -92,17 +93,31 @@ public class OrganizationService {
         }
     }
 
+    private static final int DEFAULT_PAGE_SIZE = 20;
+
     /**
-     * List all organizations in the realm.
+     * List organizations in the realm with pagination.
+     *
+     * @param first zero-based offset of the first result (defaults to 0)
+     * @param max   maximum number of results per page (defaults to 20)
+     * @return a paginated response containing organizations and page metadata
      */
-    public List<OrganizationResponse> listOrganizations() {
+    public PaginatedResponse<OrganizationResponse> listOrganizations(Integer first, Integer max) {
+        int offset = first != null ? first : 0;
+        int pageSize = max != null ? max : DEFAULT_PAGE_SIZE;
+
         List<OrganizationRepresentation> orgs = keycloakAdmin.realm(targetRealm)
                 .organizations()
-                .getAll();
+                .list(offset, pageSize);
 
-        return orgs.stream()
+        long totalElements = countOrganizations();
+        int pageNumber = pageSize > 0 ? offset / pageSize : 0;
+
+        List<OrganizationResponse> content = orgs.stream()
                 .map(this::toOrganizationResponse)
                 .collect(Collectors.toList());
+
+        return PaginatedResponse.of(content, pageNumber, pageSize, totalElements);
     }
 
     /**
@@ -207,6 +222,24 @@ public class OrganizationService {
                 .enabled(rep.isEnabled())
                 .domains(domainNames)
                 .build();
+    }
+
+    /**
+     * Get the total count of organizations in the realm via the Keycloak REST API.
+     */
+    private long countOrganizations() {
+        String url = buildOrganizationsCountUrl();
+        HttpHeaders headers = buildAuthHeaders();
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<Long> response = restTemplate.exchange(
+                url, HttpMethod.GET, entity, Long.class);
+
+        return response.getBody() != null ? response.getBody() : 0L;
+    }
+
+    private String buildOrganizationsCountUrl() {
+        return keycloakServerUrl + "/admin/realms/" + targetRealm + "/organizations/count";
     }
 
     private String buildGroupsUrl(String orgId) {
