@@ -17,8 +17,10 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -37,6 +39,7 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        // Public documentation & Swagger
                         .requestMatchers(
                                 "/swagger",
                                 "/swagger-ui/**",
@@ -44,11 +47,34 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
 
-                        // Public flow: a diner scans a QR and sees a menu
+                        // Actuator health & info probes (for Kubernetes/Docker liveness and readiness)
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/info"
+                        ).permitAll()
+
+                        // Public customer/diner flow (browsing menus, guest orders)
                         .requestMatchers(HttpMethod.GET, "/public/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/public/orders").permitAll()
 
-                        // Internal SaaS API
+                        // ── Centralized Role-Based Access Control (RBAC) ──
+                        // 1. Organization profile creation: exclusively OWNER or platform ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/organizations").hasAnyRole("OWNER", "ADMIN")
+
+                        // 2. Listing organizations: ADMIN, OWNER, or SUPER_MANAGER
+                        .requestMatchers(HttpMethod.GET, "/api/organizations").hasAnyRole("ADMIN", "OWNER", "SUPER_MANAGER")
+
+                        // 3. Branch / Group creation within an organization: exclusively OWNER or platform ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/organizations/*/groups").hasAnyRole("OWNER", "ADMIN")
+
+                        // 4. Listing branches / groups: ADMIN, OWNER, SUPER_MANAGER, or BRANCH_MANAGER
+                        .requestMatchers(HttpMethod.GET, "/api/organizations/*/groups").hasAnyRole("ADMIN", "OWNER", "SUPER_MANAGER", "BRANCH_MANAGER", "BRANCH_MANGER")
+
+                        // 5. Viewing single organization details: ADMIN, OWNER, SUPER_MANAGER, or BRANCH_MANAGER
+                        .requestMatchers(HttpMethod.GET, "/api/organizations/*").hasAnyRole("ADMIN", "OWNER", "SUPER_MANAGER", "BRANCH_MANAGER", "BRANCH_MANGER")
+
+                        // Internal SaaS API (authenticated baseline)
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().denyAll()
                 )
@@ -59,10 +85,10 @@ public class SecurityConfig {
     }
 
     /**
-     * Extracts Keycloak realm roles from the JWT {@code realm_access.roles} claim
+     * Extracts Keycloak realm and client roles from the JWT
      * and maps them to Spring Security {@code ROLE_*} granted authorities.
      *
-     * <p>This enables {@code @PreAuthorize("hasRole('ADMIN')")} etc. in controllers.
+     * <p>This enables {@code @PreAuthorize("hasRole('OWNER')")} etc. in controllers.
      */
     @Bean
     JwtAuthenticationConverter jwtAuthenticationConverter() {
@@ -72,27 +98,56 @@ public class SecurityConfig {
     }
 
     /**
-     * Converter that reads {@code realm_access.roles} from the Keycloak JWT token
-     * and maps each role to a {@link SimpleGrantedAuthority} with {@code ROLE_} prefix.
+     * Converter that reads roles from Keycloak JWT token ({@code realm_access.roles}
+     * and {@code resource_access.*.roles}) and maps each role to a {@link SimpleGrantedAuthority}
+     * with {@code ROLE_} prefix, normalizing hyphens to underscores (e.g. 'super-manager' -> 'ROLE_SUPER_MANAGER')
+     * and supporting role aliases (e.g. 'branch-manger' <-> 'branch-manager').
      */
     static class KeycloakRealmRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
 
         @Override
         @SuppressWarnings("unchecked")
         public Collection<GrantedAuthority> convert(Jwt jwt) {
+            Set<GrantedAuthority> authorities = new HashSet<>();
+
+            // 1. Extract from realm_access.roles
             Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
-            if (realmAccess == null || realmAccess.isEmpty()) {
-                return Collections.emptyList();
+            if (realmAccess != null && realmAccess.containsKey("roles")) {
+                List<String> realmRoles = (List<String>) realmAccess.get("roles");
+                if (realmRoles != null) {
+                    realmRoles.forEach(role -> addAuthoritiesForRole(authorities, role));
+                }
             }
 
-            List<String> roles = (List<String>) realmAccess.get("roles");
-            if (roles == null) {
-                return Collections.emptyList();
+            // 2. Extract from resource_access.*.roles
+            Map<String, Object> resourceAccess = jwt.getClaimAsMap("resource_access");
+            if (resourceAccess != null) {
+                for (Object clientObj : resourceAccess.values()) {
+                    if (clientObj instanceof Map<?, ?> clientMap && clientMap.containsKey("roles")) {
+                        List<String> clientRoles = (List<String>) clientMap.get("roles");
+                        if (clientRoles != null) {
+                            clientRoles.forEach(role -> addAuthoritiesForRole(authorities, role));
+                        }
+                    }
+                }
             }
 
-            return roles.stream()
-                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-                    .collect(Collectors.toList());
+            return authorities;
+        }
+
+        private void addAuthoritiesForRole(Set<GrantedAuthority> authorities, String rawRole) {
+            if (rawRole == null || rawRole.isBlank()) {
+                return;
+            }
+            String normalized = rawRole.trim().replace("-", "_").toUpperCase();
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + normalized));
+
+            // Support alias for branch-manger / branch-manager
+            if ("BRANCH_MANGER".equals(normalized)) {
+                authorities.add(new SimpleGrantedAuthority("ROLE_BRANCH_MANAGER"));
+            } else if ("BRANCH_MANAGER".equals(normalized)) {
+                authorities.add(new SimpleGrantedAuthority("ROLE_BRANCH_MANGER"));
+            }
         }
     }
 }

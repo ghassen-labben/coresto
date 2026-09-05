@@ -5,9 +5,12 @@ spring:
     password: coresto123
     driver-class-name: org.postgresql.Driver
 
+  flyway:
+    enabled: true
+
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:

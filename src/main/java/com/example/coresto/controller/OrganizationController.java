@@ -1,5 +1,6 @@
 package com.example.coresto.controller;
 
+import com.example.coresto.dto.PaginatedResponse;
 import com.example.coresto.dto.organization.CreateOrganizationGroupRequest;
 import com.example.coresto.dto.organization.CreateOrganizationRequest;
 import com.example.coresto.dto.organization.OrganizationGroupResponse;
@@ -8,6 +9,7 @@ import com.example.coresto.service.OrganizationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,23 +24,22 @@ public class OrganizationController {
 
     private final OrganizationService organizationService;
 
-    // ──────────────────────────────────────────────────────────────────
-    //  Organizations
-    // ──────────────────────────────────────────────────────────────────
-
     @PostMapping
     @Operation(summary = "Create a new organization", description = "Creates a restaurant, coffee shop, or other establishment as a Keycloak organization")
     public ResponseEntity<OrganizationResponse> createOrganization(
-            @RequestBody CreateOrganizationRequest request
+            @RequestBody @Valid CreateOrganizationRequest request
     ) {
         OrganizationResponse response = organizationService.createOrganization(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
-    @Operation(summary = "List all organizations")
-    public ResponseEntity<List<OrganizationResponse>> listOrganizations() {
-        return ResponseEntity.ok(organizationService.listOrganizations());
+    @Operation(summary = "List all organizations", description = "Retrieves a paginated list of organizations")
+    public ResponseEntity<PaginatedResponse<OrganizationResponse>> listOrganizations(
+            @RequestParam(name = "first", required = false) Integer first,
+            @RequestParam(name = "max", required = false) Integer max
+    ) {
+        return ResponseEntity.ok(organizationService.listOrganizations(first, max));
     }
 
     @GetMapping("/{id}")
@@ -47,15 +48,11 @@ public class OrganizationController {
         return ResponseEntity.ok(organizationService.getOrganization(id));
     }
 
-    // ──────────────────────────────────────────────────────────────────
-    //  Organization Groups (Branches)
-    // ──────────────────────────────────────────────────────────────────
-
     @PostMapping("/{orgId}/groups")
     @Operation(summary = "Create a group (branch) within an organization")
     public ResponseEntity<OrganizationGroupResponse> createOrganizationGroup(
             @PathVariable String orgId,
-            @RequestBody CreateOrganizationGroupRequest request
+            @RequestBody @Valid CreateOrganizationGroupRequest request
     ) {
         OrganizationGroupResponse response = organizationService.createOrganizationGroup(orgId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
