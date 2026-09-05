@@ -18,5 +18,6 @@ keycloak:
   admin:
     server-url: http://localhost:8081
     realm: master
-    client-id: coresto-admin-service
-    client-secret: slj4mFOivhEsVEUKMvpDSwQo3itxSMsm
+    client-id: admin-cli
+    username: ghassen_labben
+    password: yalonda@02
