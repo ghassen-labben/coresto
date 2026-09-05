@@ -25,14 +25,13 @@ spring:
 server:
   port: 8080
 
-# ─── Keycloak Admin Client ─────────────────────────────────────────────
+# ─── Keycloak Admin Client (Service Account) ──────────────────────────
 keycloak:
   admin:
     server-url: http://localhost:8081
     realm: master
-    client-id: admin-cli
-    username: ghassen_labben
-    password: yalonda@02
+    client-id: coresto-admin-service
+    client-secret: ${KEYCLOAK_ADMIN_CLIENT_SECRET:change-me-in-env}
     target-realm: coresto
 
 # ─── Springdoc / Swagger ───────────────────────────────────────────────
@@ -41,3 +40,6 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+    oauth:
+      client-id: coresto-swagger
+      scopes: openid,profile
