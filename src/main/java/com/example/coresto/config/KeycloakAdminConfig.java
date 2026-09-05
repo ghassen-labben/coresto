@@ -8,12 +8,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Provides a Keycloak Admin Client bean using a service account
- * (client credentials grant) for programmatic management of
- * organizations, organization groups, users, and roles.
- *
- * <p>Requires a confidential client in the {@code master} realm
- * with "Service account roles" enabled and the {@code admin} role assigned.
+ * Provides a Keycloak Admin Client bean for programmatic management
+ * of organizations, organization groups, users, and roles.
  *
  * <p>Usage example in a service:
  * <pre>
@@ -33,8 +29,11 @@ public class KeycloakAdminConfig {
     @Value("${keycloak.admin.client-id}")
     private String clientId;
 
-    @Value("${keycloak.admin.client-secret}")
-    private String clientSecret;
+    @Value("${keycloak.admin.username}")
+    private String username;
+
+    @Value("${keycloak.admin.password}")
+    private String password;
 
     @Bean
     public Keycloak keycloakAdmin() {
@@ -42,8 +41,9 @@ public class KeycloakAdminConfig {
                 .serverUrl(serverUrl)
                 .realm(realm)
                 .clientId(clientId)
-                .clientSecret(clientSecret)
-                .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
+                .username(username)
+                .password(password)
+                .grantType(OAuth2Constants.PASSWORD)
                 .build();
     }
 }
